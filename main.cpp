@@ -46,14 +46,17 @@ class Player : public Object {
         float newPositionY = position.y + velocity.y;
 
         bool hasCollided = false;
-
         for (Object* object : objects) {
-            if (CheckCollisionCircleRec(object->position, 20, {newPositionX, newPositionY, 16, 16}) && object != this) {
+            if (object != this && CheckCollisionCircleRec(object->position, 20, {newPositionX, newPositionY, 16, 16})) {
                 std::cout << "Collided" << std::endl;
+                velocity.x = 0;
+                velocity.y = 0;
                 hasCollided = true;
+                break;  // Stop checking further once a collision is found
             }
         }
 
+        // Update position only if no collision was detected
         if (!hasCollided) {
             std::cout << position.x << " --- " << velocity.x << std::endl;
             position.x = newPositionX;
@@ -143,7 +146,7 @@ static const short int FPS = 60;
 int main() {
     InitWindow(WIDTH, HEIGHT, TITLE);
 
-    Object sun({450, 300}, 2000, YELLOW);
+    Object sun({450, 300}, 5000, YELLOW);
     Object planet({300, 300}, 10, GREEN);
     Player player({100, 100}, 5, WHITE);
 
@@ -177,7 +180,7 @@ int main() {
         xVel = Input(debounce, debounceD, xVel);
         player.velocity = {(float)xVel + player.velocity.x, player.velocity.y};
 
-        std::cout << player.position.x << " " << player.position.y << std::endl;
+        std::cout << "POSITION: " << player.position.x << " " << player.position.y << std::endl;
 
         camera.target = player.position;
 
@@ -185,13 +188,13 @@ int main() {
         sun.Update();
         player.Update(objects);
 
-        BeginMode2D(camera);
+        //BeginMode2D(camera);
 
         sun.Draw();
         planet.Draw();
         player.Draw();
 
-        EndMode2D();
+        //EndMode2D();
 
         DrawGame();
 
