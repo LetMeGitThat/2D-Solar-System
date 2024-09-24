@@ -11,14 +11,18 @@ class Object {
     Vector2 velocity;
     float mass;
     Color color;
+    bool canCollide = false;
 
     void Draw() {
         DrawCircle(position.x, position.y, 20, color);
     }
 
     void Update() {
-        position.x += velocity.x;
-        position.y += velocity.y;
+        float newPositionX = position.x + velocity.x;
+        float newPositionY = position.y + velocity.y;
+
+        position.x = newPositionX;
+        position.y = newPositionY;
     }
 
     Object(Vector2 Position, float Mass, Color clr) : position(Position), mass(Mass), color(clr) {}
@@ -37,11 +41,23 @@ class Player : public Object {
         DrawTexture(sprite, position.x, position.y, WHITE);
     }
 
-    void CheckCollision(std::vector<Object*> objects) {
+    void Update(std::vector<Object*> objects) {
+        float newPositionX = position.x + velocity.x;
+        float newPositionY = position.y + velocity.y;
+
+        bool hasCollided = false;
+
         for (Object* object : objects) {
-            if (CheckCollisionCircleRec(object->position, 20, {position.x, position.y, 16, 16})) {
-                std::cout << "Collision between player and planet has occured" << std::endl;
+            if (CheckCollisionCircleRec(object->position, 20, {newPositionX, newPositionY, 16, 16}) && object != this) {
+                std::cout << "Collided" << std::endl;
+                hasCollided = true;
             }
+        }
+
+        if (!hasCollided) {
+            std::cout << position.x << " --- " << velocity.x << std::endl;
+            position.x = newPositionX;
+            position.y = newPositionY;
         }
     }
 
@@ -57,6 +73,7 @@ Vector2 GravityForce(Object obj1, Object obj2) {
     if (distance < 1.0f) distance = 1.0f;  // Avoid division by zero
 
     float force = (g * obj1.mass * obj2.mass) / (distance * distance);
+    std::cout << "PRE CALC FORCE " << force << std::endl;
 
     direction = Vector2Normalize(direction);
 
@@ -66,11 +83,15 @@ Vector2 GravityForce(Object obj1, Object obj2) {
 // Simulate all objects with gravity and update there velocities
 void SimulateGravity(std::vector<Object*> objects) {
     for (size_t i = 0; i < objects.size(); i++) {
-        for (size_t j = 0; j < objects.size(); j++) {
+        for (size_t j = i + 1; j < objects.size(); j++) {
             Object& obj1 = *objects[i];
             Object& obj2 = *objects[j];
 
             Vector2 force = GravityForce(obj1, obj2);
+            std::cout << "FORCE: " << force.x << " " << force.y << std::endl;
+            std::cout << "OBJECT 1 MASS: " << obj1.mass << std::endl;
+            std::cout << "OBJECT 2 MASS: " << obj2.mass << std::endl;
+            std::cout << "CALCULATED X: " << force.x / obj1.mass << std::endl;
 
             // Update velocities based on force and mass
             obj1.velocity.x += force.x / obj1.mass;
@@ -124,8 +145,7 @@ int main() {
 
     Object sun({450, 300}, 2000, YELLOW);
     Object planet({300, 300}, 10, GREEN);
-    Object planet2({300, 400}, 10, WHITE);
-    Player player({10, 10}, 5, WHITE);
+    Player player({100, 100}, 5, WHITE);
 
     Camera2D camera;
 
@@ -138,12 +158,10 @@ int main() {
 
     SetTargetFPS(FPS);
     planet.velocity = {1, 2.25f};
-    planet2.velocity = {1, 2};
 
     std::vector<Object*> objects;
     objects.push_back(&sun);
     objects.push_back(&planet);
-    objects.push_back(&planet2);
     objects.push_back(&player);
 
     bool debounce = false;
@@ -156,24 +174,24 @@ int main() {
 
         UpdateGame();
         SimulateGravity(objects);
-        player.CheckCollision(objects);
         xVel = Input(debounce, debounceD, xVel);
         player.velocity = {(float)xVel + player.velocity.x, player.velocity.y};
 
+        std::cout << player.position.x << " " << player.position.y << std::endl;
+
         camera.target = player.position;
 
+        planet.Update();
+        sun.Update();
+        player.Update(objects);
+
         BeginMode2D(camera);
+
         sun.Draw();
         planet.Draw();
         player.Draw();
-        planet2.Draw();
 
         EndMode2D();
-
-        planet.Update();
-        planet2.Update();
-        sun.Update();
-        player.Update();
 
         DrawGame();
 
