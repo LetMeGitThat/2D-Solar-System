@@ -44,6 +44,7 @@ class Player : public Object {
     void Update(std::vector<Object*> objects) {
         float newPositionX = position.x + velocity.x;
         float newPositionY = position.y + velocity.y;
+        std::cout << "POSITION X: " << position.x << " " << velocity.x << std::endl;
 
         bool hasCollided = false;
         for (Object* object : objects) {
@@ -76,7 +77,6 @@ Vector2 GravityForce(Object obj1, Object obj2) {
     if (distance < 1.0f) distance = 1.0f;  // Avoid division by zero
 
     float force = (g * obj1.mass * obj2.mass) / (distance * distance);
-    std::cout << "PRE CALC FORCE " << force << std::endl;
 
     direction = Vector2Normalize(direction);
 
@@ -91,10 +91,12 @@ void SimulateGravity(std::vector<Object*> objects) {
             Object& obj2 = *objects[j];
 
             Vector2 force = GravityForce(obj1, obj2);
-            std::cout << "FORCE: " << force.x << " " << force.y << std::endl;
-            std::cout << "OBJECT 1 MASS: " << obj1.mass << std::endl;
-            std::cout << "OBJECT 2 MASS: " << obj2.mass << std::endl;
             std::cout << "CALCULATED X: " << force.x / obj1.mass << std::endl;
+
+            if (force.x > 1000.0f) force.x = 1000.0f;
+            if (force.y > 1000.0f) force.y = 1000.0f;
+            if (force.x / obj1.mass < -1000.0f) {std::cout << "The number is small as shit" << std::endl;}
+            if (force.x / obj1.mass > 1000.0f) {std::cout << "The number is big as shit" << std::endl;}
 
             // Update velocities based on force and mass
             obj1.velocity.x += force.x / obj1.mass;
