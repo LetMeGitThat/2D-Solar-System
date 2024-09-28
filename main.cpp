@@ -6,66 +6,76 @@
 
 // Class that holds the data for planets/stars
 class Object {
+    char* name;
     public:
     Vector2 position;
     Vector2 velocity;
     float mass;
     Color color;
-    bool canCollide = false;
+    bool canCollide = true;
 
     void Draw() {
         DrawCircle(position.x, position.y, 20, color);
     }
 
     void Update() {
-        float newPositionX = position.x + velocity.x;
-        float newPositionY = position.y + velocity.y;
+        std::cout << name << std::endl;
 
-        position.x = newPositionX;
-        position.y = newPositionY;
+        // we need to check if an object is near us and push it relative to where we are going
+        position.x += velocity.x;
+        position.y += velocity.y;
     }
 
-    Object(Vector2 Position, float Mass, Color clr) : position(Position), mass(Mass), color(clr) {}
+    Object(char* Name, Vector2 Position, float Mass, Color clr) : name(Name), position(Position), mass(Mass), color(clr) {}
 };
 
 class Player : public Object {
     private:
     Texture2D sprite;
+    Rectangle boundingBox;  // Add bounding box for collision detection
 
     public:
     void LoadSprite() {
         sprite = LoadTexture("Sprites/astronaut.png");
+        boundingBox = {position.x, position.y, (float)sprite.width, (float)sprite.height};  // Define bounding box size
     }
 
     void Draw() {
         DrawTexture(sprite, position.x, position.y, WHITE);
+        // Uncomment for visualizing the bounding box
+        DrawRectangleLinesEx(boundingBox, 2, RED);
     }
 
-    void Update(std::vector<Object*> objects) {
-        float newPositionX = position.x + velocity.x;
-        float newPositionY = position.y + velocity.y;
-        std::cout << "POSITION X: " << position.x << " " << velocity.x << std::endl;
-
+    void Update(std::vector<Object*>& objects) {
         bool hasCollided = false;
+        
+        // Check collisions with other objects
         for (Object* object : objects) {
-            if (object != this && CheckCollisionCircleRec(object->position, 20, {newPositionX, newPositionY, 16, 16})) {
-                std::cout << "Collided" << std::endl;
-                velocity.x = 0;
-                velocity.y = 0;
-                hasCollided = true;
-                break;  // Stop checking further once a collision is found
+            if (object != this && object->canCollide) {  // Ensure we're not colliding with ourselves
+                if (CheckCollisionCircleRec(object->position, 20, {position.x + velocity.x, position.y + velocity.y, boundingBox.width, boundingBox.height})) {
+                    std::cout << "Collision occured" << std::endl;
+                    hasCollided = true;
+
+                    velocity.x = 0;
+                    velocity.y = 0;
+                    break;  // Stop checking further once a collision is found
+                }
             }
         }
 
         // Update position only if no collision was detected
         if (!hasCollided) {
-            std::cout << position.x << " --- " << velocity.x << std::endl;
-            position.x = newPositionX;
-            position.y = newPositionY;
+            std::cout << velocity.x << " " << velocity.y << std::endl;
+            position.x = position.x + velocity.x;
+            position.y = position.y + velocity.y;
+            boundingBox.x = position.x;
+            boundingBox.y = position.y;  // Update bounding box position
         }
     }
 
-    Player(Vector2 Position, float Mass, Color clr) : Object(Position, Mass, clr) {}
+    Player(char* Name, Vector2 Position, float Mass, Color clr) : Object(Name, Position, Mass, clr) {
+        canCollide = true;
+    }
 };
 
 // Get the force at which two objects exert onto each other
@@ -83,7 +93,7 @@ Vector2 GravityForce(Object obj1, Object obj2) {
     return {direction.x * force, direction.y * force};
 }
 
-// Simulate all objects with gravity and update there velocities
+// Simulate all objects with gravity and update their velocities
 void SimulateGravity(std::vector<Object*> objects) {
     for (size_t i = 0; i < objects.size(); i++) {
         for (size_t j = i + 1; j < objects.size(); j++) {
@@ -91,12 +101,6 @@ void SimulateGravity(std::vector<Object*> objects) {
             Object& obj2 = *objects[j];
 
             Vector2 force = GravityForce(obj1, obj2);
-            std::cout << "CALCULATED X: " << force.x / obj1.mass << std::endl;
-
-            if (force.x > 1000.0f) force.x = 1000.0f;
-            if (force.y > 1000.0f) force.y = 1000.0f;
-            if (force.x / obj1.mass < -1000.0f) {std::cout << "The number is small as shit" << std::endl;}
-            if (force.x / obj1.mass > 1000.0f) {std::cout << "The number is big as shit" << std::endl;}
 
             // Update velocities based on force and mass
             obj1.velocity.x += force.x / obj1.mass;
@@ -109,8 +113,8 @@ void SimulateGravity(std::vector<Object*> objects) {
     }
 }
 
-void UpdateGame() {
-    
+void DrawGame() {
+    // Additional drawing logic if needed
 }
 
 int Input(bool& debounce, bool& debounceD, int xVel) {
@@ -135,10 +139,6 @@ int Input(bool& debounce, bool& debounceD, int xVel) {
     return xVel;
 }
 
-void DrawGame() {
-
-}
-
 // Constant variables
 static const int WIDTH = 900;
 static const int HEIGHT = 600;
@@ -148,12 +148,11 @@ static const short int FPS = 60;
 int main() {
     InitWindow(WIDTH, HEIGHT, TITLE);
 
-    Object sun({450, 300}, 5000, YELLOW);
-    Object planet({300, 300}, 10, GREEN);
-    Player player({100, 100}, 5, WHITE);
+    Object sun("sun", {450, 300}, 5000, YELLOW);
+    Object planet("planet", {300, 300}, 10, GREEN);
+    Player player("player", {100, 100}, 5, WHITE);
 
     Camera2D camera;
-
     camera.target = player.position;
     camera.offset = {(float)WIDTH / 2, (float)HEIGHT / 2};  // Center the camera on the screen
     camera.rotation = 0.0f;
@@ -173,32 +172,23 @@ int main() {
     bool debounceD = false;
     int xVel = 0;
 
-    while (WindowShouldClose() == false) {
+    while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(BLACK);
 
-        UpdateGame();
         SimulateGravity(objects);
         xVel = Input(debounce, debounceD, xVel);
         player.velocity = {(float)xVel + player.velocity.x, player.velocity.y};
-
-        std::cout << "POSITION: " << player.position.x << " " << player.position.y << std::endl;
 
         camera.target = player.position;
 
         planet.Update();
         sun.Update();
-        player.Update(objects);
-
-        //BeginMode2D(camera);
+        player.Update(objects);  // Pass objects for collision checking
 
         sun.Draw();
         planet.Draw();
         player.Draw();
-
-        //EndMode2D();
-
-        DrawGame();
 
         EndDrawing();
     }
