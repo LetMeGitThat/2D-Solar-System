@@ -6,8 +6,8 @@
 
 // Class that holds the data for planets/stars
 class Object {
-    char* name;
     public:
+    char* name;
     Vector2 position;
     Vector2 velocity;
     float mass;
@@ -33,6 +33,7 @@ class Player : public Object {
     private:
     Texture2D sprite;
     Rectangle boundingBox;  // Add bounding box for collision detection
+    bool onSun = false;
 
     public:
     void LoadSprite() {
@@ -45,32 +46,46 @@ class Player : public Object {
         // Uncomment for visualizing the bounding box
         DrawRectangleLinesEx(boundingBox, 2, RED);
     }
-
     void Update(std::vector<Object*>& objects) {
         bool hasCollided = false;
         
         // Check collisions with other objects
         for (Object* object : objects) {
-            if (object != this && object->canCollide) {  // Ensure we're not colliding with ourselves
+            if (object != this && object->canCollide) {
                 if (CheckCollisionCircleRec(object->position, 20, {position.x + velocity.x, position.y + velocity.y, boundingBox.width, boundingBox.height})) {
-                    std::cout << "Collision occured" << std::endl;
-                    hasCollided = true;
+                    if (object->name == "sun") {
+                        // Handle "on sun" behavior
+                        hasCollided = true;
+                        onSun = true;
 
-                    velocity.x = 0;
-                    velocity.y = 0;
-                    break;  // Stop checking further once a collision is found
+                        // Match the player's velocity to the sun's velocity
+                        velocity = object->velocity;
+
+                        // Place player on the surface of the sun
+                        Vector2 direction = Vector2Subtract(position, object->position);
+                        direction = Vector2Normalize(direction);
+                        position = Vector2Add(object->position, Vector2Scale(direction, 20 + boundingBox.height / 2));
+
+                        break;  // Stop checking further once a collision is found
+                    } else {
+                        std::cout << "Collision occurred" << std::endl;
+                        velocity.x = 0;
+                        velocity.y = 0;
+                        hasCollided = true;
+                    }
                 }
             }
         }
 
-        // Update position only if no collision was detected
-        if (!hasCollided) {
-            std::cout << velocity.x << " " << velocity.y << std::endl;
-            position.x = position.x + velocity.x;
-            position.y = position.y + velocity.y;
-            boundingBox.x = position.x;
-            boundingBox.y = position.y;  // Update bounding box position
+        if (!hasCollided && !onSun) {
+            position.x += velocity.x;
+            position.y += velocity.y;
+        } else {
+            onSun = false;  // Reset the flag if the player moves away
         }
+
+        boundingBox.x = position.x;
+        boundingBox.y = position.y;  // Update bounding box position
     }
 
     Player(char* Name, Vector2 Position, float Mass, Color clr) : Object(Name, Position, Mass, clr) {
@@ -120,20 +135,20 @@ void DrawGame() {
 int Input(bool& debounce, bool& debounceD, int xVel) {
     if (IsKeyPressed(KEY_A) && debounce == false) {
         debounce = true;
-        xVel += -1;
+        xVel += -.1;
     }
     if (IsKeyPressed(KEY_D) && debounceD == false) {
         debounceD = true;
-        xVel += 1;
+        xVel += .1;
     }
 
     if (IsKeyReleased(KEY_A) && debounce == true) {
         debounce = false;
-        xVel += 1;
+        xVel += .1;
     }
     if (IsKeyReleased(KEY_D) && debounceD == true) {
         debounceD = false;
-        xVel += -1;
+        xVel += -.1;
     }
 
     return xVel;
@@ -186,9 +201,11 @@ int main() {
         sun.Update();
         player.Update(objects);  // Pass objects for collision checking
 
+        BeginMode2D(camera);
         sun.Draw();
         planet.Draw();
         player.Draw();
+        EndMode2D();
 
         EndDrawing();
     }
